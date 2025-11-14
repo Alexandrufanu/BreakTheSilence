@@ -20,8 +20,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             MyApplicationTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    Greeting(
-                        name = "Android",
+                    ArrowPuzzleGame(
                         modifier = Modifier.padding(innerPadding)
                     )
                 }
