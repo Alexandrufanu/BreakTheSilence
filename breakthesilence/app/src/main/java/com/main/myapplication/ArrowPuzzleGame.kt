@@ -3,6 +3,8 @@ package com.main.myapplication
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
+import androidx.compose.material3.Button
+import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -13,27 +15,56 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
+import kotlin.math.sqrt
+
+// Arrow data class
+data class Arrow(
+    val position: Offset,
+    val isMoving: Boolean = false,
+    val size: Float = 40f,
+    val speed: Float = 1f,
+    val initialPosition: Offset = position  // Store the starting position
+) {
+    fun move(): Arrow {
+        return if (isMoving) {
+            // Keep initialPosition when moving
+            copy(position = position.copy(y = position.y - speed))
+        } else {
+            this
+        }
+    }
+    
+    fun isOffScreen(): Boolean {
+        return position.y < -50f
+    }
+    
+    fun contains(tapPosition: Offset): Boolean {
+        val dx = tapPosition.x - position.x
+        val dy = tapPosition.y - position.y
+        val distance = sqrt(dx * dx + dy * dy)
+        return distance < size
+    }
+    
+    fun reset(): Arrow {
+        return copy(position = initialPosition, isMoving = false)
+    }
+}
 
 @Composable
 fun ArrowPuzzleGame(modifier: Modifier = Modifier) {
-    var arrowPosition by remember { mutableStateOf(Offset(200f, 400f)) }
-    var isMoving by remember { mutableStateOf(false) }
+    var arrow by remember { mutableStateOf(Arrow(position = Offset(200f, 400f))) }
 
     // Animation loop for moving arrow
-    LaunchedEffect(isMoving) {
-        if (isMoving) {
-            while (isMoving) {
-                delay(16) // ~60 FPS
-
-                // Move arrow upward
-                val newY = arrowPosition.y - 5f
-
-                // Stop if arrow goes off screen
-                if (newY < -50f) {
-                    isMoving = false
-                } else {
-                    arrowPosition = arrowPosition.copy(y = newY)
-                }
+    LaunchedEffect(arrow.isMoving) {
+        if (arrow.isMoving) {
+            while (arrow.isMoving && !arrow.isOffScreen()) {
+                delay(1) // ~60 FPS
+                arrow = arrow.move()
+            }
+            
+            // Stop when off screen
+            if (arrow.isOffScreen()) {
+                arrow = arrow.copy(isMoving = false)
             }
         }
     }
@@ -51,14 +82,8 @@ fun ArrowPuzzleGame(modifier: Modifier = Modifier) {
                 .pointerInput(Unit) {
                     detectTapGestures { tapOffset ->
                         // Check if arrow was tapped
-                        if (!isMoving) {
-                            val dx = tapOffset.x - arrowPosition.x
-                            val dy = tapOffset.y - arrowPosition.y
-                            val distance = kotlin.math.sqrt(dx * dx + dy * dy)
-
-                            if (distance < 40f) {
-                                isMoving = true
-                            }
+                        if (!arrow.isMoving && arrow.contains(tapOffset)) {
+                            arrow = arrow.copy(isMoving = true)
                         }
                     }
                 }
@@ -71,22 +96,30 @@ fun ArrowPuzzleGame(modifier: Modifier = Modifier) {
 
             // Draw arrow
             drawArrow(
-                position = arrowPosition,
-                color = if (isMoving) Color(0xFF4CAF50) else Color(0xFF2196F3)
+                arrow = arrow,
+                color = if (arrow.isMoving) Color(0xFF4CAF50) else Color(0xFF2196F3)
             )
+        }
+        
+        // Reset button
+        Button(
+            onClick = {
+                arrow = arrow.reset()
+            },
+            modifier = Modifier.padding(16.dp)
+        ) {
+            Text("Reset")
         }
     }
 }
 
 // Draw a simple upward-pointing arrow
-fun DrawScope.drawArrow(position: Offset, color: Color) {
-    val arrowSize = 40f
-
+fun DrawScope.drawArrow(arrow: Arrow, color: Color) {
     // Arrow triangle
     val path = Path().apply {
-        moveTo(position.x, position.y - arrowSize / 2)
-        lineTo(position.x - arrowSize / 3, position.y + arrowSize / 2)
-        lineTo(position.x + arrowSize / 3, position.y + arrowSize / 2)
+        moveTo(arrow.position.x, arrow.position.y - arrow.size / 2)
+        lineTo(arrow.position.x - arrow.size / 3, arrow.position.y + arrow.size / 2)
+        lineTo(arrow.position.x + arrow.size / 3, arrow.position.y + arrow.size / 2)
         close()
     }
 
@@ -102,3 +135,4 @@ fun DrawScope.drawArrow(position: Offset, color: Color) {
         style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2f)
     )
 }
+
